@@ -61,7 +61,7 @@ function initMap(userCoords, userAcc) {
 
   L.marker([(niceCoords[0]+marseilleCoords[0])/2, (niceCoords[1]+marseilleCoords[1])/2]).addTo(map).bindPopup("Point entre Nice et Marseille");
 
-  fetch('data.geojson')
+  fetch('https://geo.api.gouv.fr/communes?codePostal=06110')
   .then(response => response.json())
   .then(data => {
     L.geoJSON(data).addTo(map);

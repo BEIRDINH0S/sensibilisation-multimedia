@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Géolocalisation simple</title>
+</head>
+<body>
+  <h1>Géolocalisation simple</h1>
+
+  <h2>Position instantanée (getCurrentPosition)</h2>
+  <table>
+    <tbody>
+      <tr><th>Latitude</th><td id="current-lat">--</td></tr>
+      <tr><th>Longitude</th><td id="current-lon">--</td></tr>
+      <tr><th>Altitude</th><td id="current-alt">--</td></tr>
+      <tr><th>Précision (m)</th><td id="current-accuracy">--</td></tr>
+      <tr><th>Vitesse (m/s)</th><td id="current-speed">--</td></tr>
+      <tr><th>Date</th><td id="current-date">--</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Position en temps réel (watchPosition)</h2>
+  <table>
+    <tbody>
+      <tr><th>Latitude</th><td id="watch-lat">--</td></tr>
+      <tr><th>Longitude</th><td id="watch-lon">--</td></tr>
+      <tr><th>Altitude</th><td id="watch-alt">--</td></tr>
+      <tr><th>Précision (m)</th><td id="watch-accuracy">--</td></tr>
+      <tr><th>Vitesse (m/s)</th><td id="watch-speed">--</td></tr>
+      <tr><th>Date</th><td id="watch-date">--</td></tr>
+    </tbody>
+  </table>
+
+  <script src="geoloc.js"></script>
+</body>
+</html>

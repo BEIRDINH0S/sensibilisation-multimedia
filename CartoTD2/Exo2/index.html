@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>TD2 - Babylon.js</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100% }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylon.glTF2FileLoader.js"></script>
+
+  <script>
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+
+    let box, model3D;
+    let rotationX = 0, rotationY = 0;
+
+    const createScene = function () {
+      const scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color3(0.133, 0.133, 0.133);
+
+      // Caméra
+      const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
+      camera.attachControl(canvas, true);
+
+      // Lumières
+      const light1 = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+      light1.intensity = 0.6;
+      const light2 = new BABYLON.DirectionalLight("light2", new BABYLON.Vector3(-1, -2, -1), scene);
+      light2.position = new BABYLON.Vector3(5, 10, 5);
+
+      // Cube texturé
+      box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
+      const material = new BABYLON.StandardMaterial("boxMat", scene);
+      material.diffuseTexture = new BABYLON.Texture("https://threejs.org/examples/textures/crate.gif", scene);
+      box.material = material;
+
+      // Charger un modèle 3D
+      BABYLON.SceneLoader.Append(
+        "model/", // dossier contenant scene.gltf
+        "scene.gltf",
+        scene,
+        function (loadedScene) {
+          model3D = loadedScene.meshes[loadedScene.meshes.length - 1];
+          model3D.position = new BABYLON.Vector3(2, 0, 0);
+          model3D.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01);
+        },
+        null,
+        function (scene, message, exception) {
+          console.error("Erreur de chargement :", message, exception);
+        }
+      );
+
+      return scene;
+    };
+
+    const scene = createScene();
+
+    // Écouter l'orientation du téléphone
+    window.addEventListener("deviceorientation", (event) => {
+      if (event.beta !== null && event.gamma !== null) {
+        rotationX = BABYLON.Tools.ToRadians(event.beta);
+        rotationY = BABYLON.Tools.ToRadians(event.gamma);
+      }
+    });
+
+    // Boucle d’animation
+    engine.runRenderLoop(function () {
+      if (box) {
+        box.rotation.x = rotationX;
+        box.rotation.y = rotationY;
+      }
+      if (model3D) {
+        model3D.rotation.x = rotationX;
+        model3D.rotation.y = rotationY;
+      }
+      scene.render();
+    });
+
+    window.addEventListener("resize", function () {
+      engine.resize();
+    });
+  </script>
+</body>
+</html>

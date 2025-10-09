@@ -40,7 +40,6 @@
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
-    // Charger un modèle 3D (GLTF)
     const loader = new THREE.GLTFLoader();
     loader.load(
       "model/scene.gltf",
@@ -55,7 +54,6 @@
       }
     );
 
-    // Animation
     function animate() {
       cube.rotation.x += 0.01;
       cube.rotation.y += 0.01;
@@ -64,7 +62,6 @@
     }
     animate();
 
-    // Orientation smartphone
     window.addEventListener("deviceorientation", (event) => {
       if (event.beta !== null && event.gamma !== null) {
         cube.rotation.x = event.beta * Math.PI / 180;
@@ -72,7 +69,6 @@
       }
     });
 
-    // Redimensionnement
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();

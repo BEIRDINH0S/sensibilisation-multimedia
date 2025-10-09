@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Globe Babylon.js avec Drapeaux + Leaflet</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #map {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            height: 200px;
+            z-index: 1000;
+            border: 2px solid black;
+        }
+    </style>
+</head>
+<body>
+<canvas id="renderCanvas" touch-action="none"></canvas>
+<div id="map"></div>
+
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let leafletMarker = null;
+
+    const createScene = function () {
+        const scene = new BABYLON.Scene(engine);
+        scene.clearColor = new BABYLON.Color4(0, 0, 0, 1);
+        scene.collisionsEnabled = true;
+
+        const camera = new BABYLON.ArcRotateCamera(
+            "Camera",
+            Math.PI / 2,
+            Math.PI / 2.5,
+            4,
+            BABYLON.Vector3.Zero(),
+            scene
+        );
+        camera.attachControl(canvas, true);
+        camera.lowerRadiusLimit = 1.5;
+        camera.upperRadiusLimit = 10;
+        camera.checkCollisions = true;
+        camera.collisionEllipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
+
+        const light = new BABYLON.HemisphericLight(
+            "light",
+            new BABYLON.Vector3(1, 1, 0),
+            scene
+        );
+        light.intensity = 1.2;
+
+        const earth = BABYLON.MeshBuilder.CreateSphere(
+            "earth",
+            { diameter: 2, segments: 64 },
+            scene
+        );
+        earth.checkCollisions = true; // ✅ Activer collisions sur Terre
+
+        const earthMat = new BABYLON.StandardMaterial("earthMat", scene);
+        earthMat.diffuseTexture = new BABYLON.Texture(
+            "world.200411.3x5400x2700.jpg",
+            scene
+        );
+        earthMat.specularColor = new BABYLON.Color3(0, 0, 0);
+        earth.material = earthMat;
+
+        earth.rotation.y = Math.PI;
+        earth.rotation.x = Math.PI;
+
+        const radius = 1;
+
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = lon * (Math.PI / 180);
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            const y = radius * Math.cos(phi);
+            return new BABYLON.Vector3(x, y, z);
+        }
+
+        function vector3ToLatLon(v) {
+            const radius = v.length();
+            const lat = 90 - (Math.acos(v.y / radius) * 180 / Math.PI);
+            const lon = Math.atan2(v.z, v.x) * 180 / Math.PI;
+            return { lat, lon };
+        }
+
+        let cubes = [];
+        let scaleFactor = 0.1;
+
+        function createFlagMarker(lat, lon, radius, flagUrl) {
+            const offset = scaleFactor / 4;
+            const position = latLonToVector3(lat, lon, radius + offset);
+
+            const flagMat = new BABYLON.StandardMaterial("flagMat", scene);
+            flagMat.diffuseTexture = new BABYLON.Texture(flagUrl, scene);
+            flagMat.diffuseTexture.hasAlpha = true;
+
+            const cube = BABYLON.MeshBuilder.CreateBox("flagCube", {
+                size: 0.1,
+            }, scene);
+            cube.material = flagMat;
+            cube.position = position;
+            cube.lookAt(BABYLON.Vector3.Zero());
+
+            cubes.push(cube);
+        }
+
+        fetch("https://restcountries.com/v3.1/all?fields=name,latlng,flags")
+            .then((res) => res.json())
+            .then((countries) => {
+                countries.forEach((country) => {
+                    if (country.latlng && country.flags && country.flags.svg) {
+                        createFlagMarker(
+                            country.latlng[0],
+                            country.latlng[1],
+                            radius,
+                            country.flags.svg
+                        );
+                    }
+                });
+            })
+            .catch((err) => console.error("Erreur RestCountries:", err));
+
+        scene.registerBeforeRender(() => {
+            cubes.forEach((cube) => {
+                const scaleFactor = 0.5 * (camera.radius / 4);
+                cube.scaling = new BABYLON.Vector3(scaleFactor, scaleFactor, scaleFactor);
+            });
+        });
+
+        scene.onPointerDown = function (evt, pickResult) {
+            if (pickResult.hit && pickResult.pickedMesh === earth) {
+                const pickedPoint = pickResult.pickedPoint;
+                const coords = vector3ToLatLon(pickedPoint);
+                console.log("Latitude:", coords.lat, "Longitude:", coords.lon);
+
+                map.setView([coords.lat, coords.lon], 6);
+
+                if (leafletMarker) {
+                    leafletMarker.setLatLng([coords.lat, coords.lon]);
+                } else {
+                    leafletMarker = L.marker([coords.lat, coords.lon]).addTo(map);
+                }
+
+                const targetRadius = Math.max(camera.lowerRadiusLimit, camera.radius * 0.5);
+                const newTarget = pickedPoint.scale(0.9);
+
+                animateCameraToTarget(camera, newTarget, targetRadius, scene);
+            }
+        };
+
+        function animateCameraToTarget(camera, target, radius, scene) {
+            radius = Math.max(camera.lowerRadiusLimit, radius);
+            const frames = 60;
+            const animTarget = new BABYLON.Animation(
+                "animTarget",
+                "target",
+                60,
+                BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+            );
+            const keysTarget = [
+                { frame: 0, value: camera.target.clone() },
+                { frame: frames, value: target }
+            ];
+            animTarget.setKeys(keysTarget);
+            camera.animations.push(animTarget);
+
+            const animRadius = new BABYLON.Animation(
+                "animRadius",
+                "radius",
+                60,
+                BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+            );
+            const keysRadius = [
+                { frame: 0, value: camera.radius },
+                { frame: frames, value: radius }
+            ];
+            animRadius.setKeys(keysRadius);
+            camera.animations.push(animRadius);
+
+            scene.beginAnimation(camera, 0, frames, false);
+        }
+
+        return scene;
+    };
+
+    const scene = createScene();
+    engine.runRenderLoop(function () { scene.render(); });
+    window.addEventListener("resize", function () { engine.resize(); });
+});
+</script>
+
+</body>
+</html>

@@ -18,7 +18,6 @@ highScoreElement.textContent = highScore;
 let gameScene;
 let menuScene;
 let isGameRunning = false;
-// --- NOUVEAU : Une variable pour garder une référence à l'écouteur actif ---
 let keydownHandler; 
 
 // --- GESTION DES SKINS (inchangé) ---
@@ -63,7 +62,7 @@ function populateSkinsList() {
 const createGameScene = function () {
     gameScene = new BABYLON.Scene(engine);
 
-    // Le reste du code de la scène est identique...
+    // ... Le reste de la configuration de la scène est identique
     const camera = new BABYLON.FollowCamera("FollowCam", new BABYLON.Vector3(0, 6, 10), gameScene);
     camera.radius = 12; 
     camera.heightOffset = 5;
@@ -142,7 +141,7 @@ const createGameScene = function () {
         return train;
     };
 
-    // --- CORRECTION : La fonction est maintenant déclarée en dehors de la boucle de jeu ---
+    // --- CONTRÔLES CLAVIER ---
     const handleKeyDown = (e) => {
         if (isGameOver || !isGameRunning) return;
         const key = e.key.toLowerCase();
@@ -158,15 +157,67 @@ const createGameScene = function () {
             player.position.y -= 0.375;
         }
     };
-    
-    // On stocke la référence à notre fonction pour pouvoir la supprimer plus tard
     keydownHandler = handleKeyDown;
     window.addEventListener('keydown', keydownHandler);
     
+    // --- NOUVEAU : CONTRÔLES TACTILES ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    const handleTouchStart = (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+        if (isGameOver || !isGameRunning) return;
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // On vérifie si le mouvement est principalement horizontal ou vertical
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // Swipe horizontal
+            if (Math.abs(deltaX) > 30) { // Seuil de détection
+                if (deltaX > 0 && currentLane < lanes.length - 1) { // Droite
+                    currentLane++;
+                } else if (deltaX < 0 && currentLane > 0) { // Gauche
+                    currentLane--;
+                }
+            }
+        } else {
+            // Swipe vertical
+            if (Math.abs(deltaY) > 30) { // Seuil de détection
+                if (deltaY < 0 && !isJumping && !isSliding) { // Haut (saut)
+                    isJumping = true;
+                    jumpVelocity = jumpForce;
+                } else if (deltaY > 0 && !isJumping && !isSliding) { // Bas (glissade)
+                    isSliding = true;
+                    slideTimer = slideDuration;
+                    player.scaling.y = 0.5;
+                    player.position.y -= 0.375;
+                }
+            }
+        }
+    };
+
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    // ------------------------------------
+
     const gameOver = () => {
         isGameOver = true;
         isGameRunning = false;
         gameSpeed = 0;
+
+        // --- NOUVEAU : Nettoyage des écouteurs tactiles ---
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchend', handleTouchEnd);
+        // -------------------------------------------
+
         if (score > highScore) {
             highScore = score;
             localStorage.setItem('highScore', highScore);
@@ -178,6 +229,7 @@ const createGameScene = function () {
         playButton.textContent = 'Rejouer';
     };
     
+    // Le reste du code de la boucle de jeu est identique...
     gameScene.onBeforeRenderObservable.add(() => {
         if (!isGameOver && isGameRunning) {
             player.position.z += gameSpeed;
@@ -301,9 +353,7 @@ playButton.addEventListener('click', () => {
     menuContainer.style.display = 'none';
     infoDiv.style.display = 'block';
     
-    // --- CORRECTION : Nettoyage avant de lancer ---
     if (gameScene) {
-        // On retire l'écouteur de la partie précédente
         if (keydownHandler) {
             window.removeEventListener('keydown', keydownHandler);
         }
